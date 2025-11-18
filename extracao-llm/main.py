@@ -25,7 +25,18 @@ CONTEXTO_DA_BUSCA = "Instrumentos financeiros"
 # Chave: O nome da coluna no CSV.
 # Valor: A instrução para o LLM de como extrair/formatar esse dado.
 CAMPOS_PARA_EXTRAIR = {
-   
+    "FVTPL Nota 1": "Extraia o valor numérico associado. Remova símbolos como '$' ou 'US$'. Mantenha vírgulas de milhar se houver.",
+    
+    "Hedging financial assets": "Extraia o valor numérico associado. Remova símbolos como '$' ou 'US$'. Mantenha vírgulas de milhar se houver.",
+    
+    # --- ALTERAÇÃO AQUI ---
+    "Custo Amortizado Nota 3 - Curto Prazo": "Valor classificado como circulante (curto prazo). Ignore totais somados.",
+    
+    "Custo Amortizado Nota 3 - Curto Prazo (Não Circulante)": "Valor classificado como não circulante (curto prazo). Ignore totais somados.",
+    # ----------------------
+    "FVTOCI": "Extraia o valor numérico associado. Remova símbolos como '$' ou 'US$'. Mantenha vírgulas de milhar se houver.",
+
+    "Data": "Extraia a data da coluna ou cabeçalho correspondente. Converta para o formato DD/MM/AAAA."
 }
 
 # --- FUNÇÃO AUXILIAR ---
