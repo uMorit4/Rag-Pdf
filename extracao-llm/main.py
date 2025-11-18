@@ -14,27 +14,19 @@ from core.extractor import extrair_dados_estruturados
 from utils.csv_writer import salvar_para_csv
 
 # --- Configuração ---
-NOME_PDF_ENTRADA = "NVIDIA 2025 Annual Report.pdf" 
+NOME_PDF_ENTRADA = "TSMC 2025 Q1 Financial Statements.pdf" 
 NOME_CSV_SAIDA = "dados_extraidos.csv"
 TAMANHO_DO_CHUNK_PAGINAS = 40 
 
-# --- NOVA CONFIGURAÇÃO DE BUSCA ---
+# --- CONTEXTO DE BUSCA ---
+CONTEXTO_DA_BUSCA = "Instrumentos financeiros"
 
-# Defina o CONTEXTO onde o LLM deve procurar.
-# Ex: "Proposal for Election of Directors"
-# Se não quiser um contexto (comportamento antigo), defina como None
-CONTEXTO_DA_BUSCA = "Election of Directors"
-
-# Defina os campos que você quer extrair DE DENTRO desse contexto.
-CAMPOS_PARA_EXTRAIR = [
-    "board_recomendation_name",
-    "age",
-    "director_since"
-
-]
-
-# ------------------------------------
-
+# --- CAMPOS E INSTRUÇÕES DE FORMATAÇÃO (AGORA É UM DICIONÁRIO) ---
+# Chave: O nome da coluna no CSV.
+# Valor: A instrução para o LLM de como extrair/formatar esse dado.
+CAMPOS_PARA_EXTRAIR = {
+   
+}
 
 # --- FUNÇÃO AUXILIAR ---
 def criar_chunks_de_documento(documentos: List[Document], tamanho_chunk: int) -> List[List[Document]]:
