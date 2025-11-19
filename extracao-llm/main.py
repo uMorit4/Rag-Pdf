@@ -19,7 +19,7 @@ NOME_CSV_SAIDA = "dados_extraidos.csv"
 TAMANHO_DO_CHUNK_PAGINAS = 40 
 
 # --- CONTEXTO DE BUSCA ---
-CONTEXTO_DA_BUSCA = "Instrumentos financeiros"
+CONTEXTO_DA_BUSCA = "Instrumentos financeiros - categorias de instrumentos financeiros"
 
 # --- CAMPOS E INSTRUÇÕES DE FORMATAÇÃO (AGORA É UM DICIONÁRIO) ---
 # Chave: O nome da coluna no CSV.
@@ -30,10 +30,8 @@ CAMPOS_PARA_EXTRAIR = {
     "Hedging financial assets": "Extraia o valor numérico associado. Remova símbolos como '$' ou 'US$'. Mantenha vírgulas de milhar se houver.",
     
     # --- ALTERAÇÃO AQUI ---
-    "Custo Amortizado Nota 3 - Curto Prazo": "Valor classificado como circulante (curto prazo). Ignore totais somados.",
-    
-    "Custo Amortizado Nota 3 - Curto Prazo (Não Circulante)": "Valor classificado como não circulante (curto prazo). Ignore totais somados.",
-    # ----------------------
+    "Custo amortizado Nota 3 - Total":  "Use exatamente o número da tabela, incluindo vírgulas de milhar. ",
+
     "FVTOCI": "Extraia o valor numérico associado. Remova símbolos como '$' ou 'US$'. Mantenha vírgulas de milhar se houver.",
 
     "Data": "Extraia a data da coluna ou cabeçalho correspondente. Converta para o formato DD/MM/AAAA."
