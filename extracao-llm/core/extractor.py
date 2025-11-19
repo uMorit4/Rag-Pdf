@@ -26,7 +26,7 @@ CONTEÚDO DO DOCUMENTO:
 Siga rigorosamente o formato de saída JSON.
 """
 
-PROMPT_TEMPLATE_GENERICO = """
+SYSTEM_PROMPT = """
 Sua tarefa é agir como um analista de dados especialista.
 Extraia os dados solicitados do documento abaixo.
 
@@ -101,7 +101,7 @@ def extrair_dados_estruturados(
         }
     else:
         print(f"\n[Extrator] Extração GENÉRICA.")
-        prompt_template = PROMPT_TEMPLATE_GENERICO
+        prompt_template = SYSTEM_PROMPT
         inputs = {
             "campos_lista_str": ", ".join(lista_nomes_campos),
         }
