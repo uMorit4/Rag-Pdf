@@ -1,5 +1,5 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from config import settings # Importa nossas configurações
+from config import settings
 import sys
 
 def get_gemini_llm():
@@ -9,13 +9,13 @@ def get_gemini_llm():
     if not settings.GOOGLE_API_KEY:
         print("Erro: A chave GOOGLE_API_KEY não foi configurada.")
         print("Por favor, adicione-a ao seu arquivo .env")
-        sys.exit(1) # Para a execução se a chave não estiver presente
+        sys.exit(1) 
 
     try:
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
+            model="gemini-2.5-flash",
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0 # Queremos respostas factuais e consistentes
+            temperature=0
         )
         print("Modelo Gemini inicializado com sucesso.")
         return llm

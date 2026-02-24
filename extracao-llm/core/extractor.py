@@ -60,8 +60,6 @@ def create_dynamic_output_schema(campos_dict: Dict[str, str]) -> Type[BaseModel]
     for campo_nome, instrucao_formatacao in campos_dict.items():
         field_slug = _slugify(campo_nome)
         
-        # AQUI ESTÁ O SEGREDO:
-        # Passamos a sua instrução ("Retornar apenas números...") para o LLM via 'description'
         fields_definition[field_slug] = (
             Optional[str], 
             Field(description=f"Campo: '{campo_nome}'. Instrução: {instrucao_formatacao}")
@@ -78,20 +76,17 @@ def create_dynamic_output_schema(campos_dict: Dict[str, str]) -> Type[BaseModel]
 
 def extrair_dados_estruturados(
     documentos: List[Document], 
-    campos_config: Union[List[str], Dict[str, str]], # Aceita Lista (legado) ou Dict (novo)
+    campos_config: Union[List[str], Dict[str, str]],
     contexto_busca: Optional[str] = None
 ) -> List[Dict]:
     
-    # 1. Normalização: Se o usuário passar Lista (modo antigo), converte para Dict com instrução padrão
     if isinstance(campos_config, list):
         campos_dict = {campo: "Extraia o valor correspondente a este campo." for campo in campos_config}
     else:
         campos_dict = campos_config
 
-    # Lista de nomes para o prompt (apenas as chaves)
     lista_nomes_campos = list(campos_dict.keys())
 
-    # 2. Selecionar Prompt
     if contexto_busca:
         print(f"\n[Extrator] Extração com CONTEXTO: '{contexto_busca}'")
         prompt_template = PROMPT_TEMPLATE_CONTEXTO
@@ -109,18 +104,15 @@ def extrair_dados_estruturados(
     llm = get_gemini_llm()
     
     try:
-        # 3. Criar Schema com as instruções do Dicionário
         OutputSchema = create_dynamic_output_schema(campos_dict)
         llm_with_schema = llm.with_structured_output(OutputSchema)
-        
-        # 4. Preparar Documento
+
         contexto_documento = "\n\n--- Pág ---\n\n".join([doc.page_content for doc in documentos])
         inputs["contexto_documento"] = contexto_documento
         
         prompt = ChatPromptTemplate.from_template(prompt_template)
         chain = prompt | llm_with_schema
-        
-        # 5. Invocar
+
         resultado = chain.invoke(inputs)
         dados = [item.model_dump() for item in resultado.data]
         return dados

@@ -27,19 +27,14 @@ def limpar_paginas_pdf(
     todas_linhas_por_pagina: List[List[str]] = []
     contador_linhas = Counter()
 
-    # 1) Coletar linhas de cada página e contar repetições
     for doc in paginas:
         texto = doc.page_content or ""
-        # Remove linhas vazias e espaços nas extremidades
         linhas = [l.strip() for l in texto.splitlines() if l.strip()]
         todas_linhas_por_pagina.append(linhas)
 
-        # para identificar cabeçalho/rodapé global,
-        # contamos cada linha no máximo 1x por página
         contador_linhas.update(set(linhas))
 
     n_paginas = len(paginas)
-    # Pelo menos 2 páginas, e pelo menos frac_repeticao das páginas
     limite_repeticao = max(2, int(n_paginas * frac_repeticao))
     linhas_ruido = {
         linha for linha, c in contador_linhas.items() if c >= limite_repeticao
@@ -50,13 +45,10 @@ def limpar_paginas_pdf(
         f"(provável cabeçalho/rodapé) em >= {limite_repeticao} páginas."
     )
 
-    # 2) Limpar página a página
     for doc, linhas in zip(paginas, todas_linhas_por_pagina):
-        # 2.1) Remover linhas de ruído global
+
         linhas_filtradas = [l for l in linhas if l not in linhas_ruido]
 
-        # (Opcional) Remover disclaimers específicos via regex
-        # Exemplo:
         padroes_descartar = [
             r"this document.*not (an offer|constitute)",
             r"tsmc.*all rights reserved",
@@ -67,7 +59,6 @@ def limpar_paginas_pdf(
                 continue
             linhas_filtradas2.append(l)
 
-        # 2.2) Juntar linhas quebradas "no meio da frase"
         linhas_mescladas: List[str] = []
         buffer = ""
         for l in linhas_filtradas2:
@@ -75,8 +66,6 @@ def limpar_paginas_pdf(
                 buffer = l
                 continue
 
-            # se a linha anterior NÃO termina com pontuação "forte",
-            # assumimos que a próxima linha é continuação
             if not re.search(r"[.!?:;]$", buffer):
                 buffer += " " + l
             else:
@@ -86,10 +75,8 @@ def limpar_paginas_pdf(
         if buffer:
             linhas_mescladas.append(buffer)
 
-        # 2.3) Normalizar espaços dentro de cada linha
         linhas_norm = [re.sub(r"[ \t]+", " ", l).strip() for l in linhas_mescladas]
 
-        # 2.4) Reconstituir conteúdo da página
         doc.page_content = "\n".join(linhas_norm)
 
     return paginas
@@ -107,12 +94,10 @@ def carregar_pdf(caminho_arquivo: str) -> List[Document]:
     """
     print(f"Carregando PDF de: {caminho_arquivo}")
     try:
-        # PyPDFLoader carrega o PDF e já o divide por páginas
         loader = PyPDFLoader(caminho_arquivo)
         paginas: List[Document] = loader.load()
         print(f"PDF carregado com sucesso. Número de páginas: {len(paginas)}")
 
-        # >>> AQUI entra a mágica da otimização <<<
         paginas = limpar_paginas_pdf(paginas, frac_repeticao=0.5)
 
         print("Limpeza básica aplicada às páginas (remoção de cabeçalho/rodapé, "
