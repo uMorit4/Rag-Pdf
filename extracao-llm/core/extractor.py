@@ -32,7 +32,7 @@ def create_dynamic_output_schema(campos_extracao: List[Dict[str, str]]) -> Type[
     return OutputModel
 
 def extrair_dados_estruturados(
-    arquivos_info: List[Dict[str, str]], # <--- Agora recebe uma lista com dicts {uri, nome}
+    arquivos_info: List[Dict[str, str]], 
     config_json: Dict[str, Any],
     llm
 ) -> List[Dict]:
@@ -46,7 +46,6 @@ def extrair_dados_estruturados(
 
     lista_nomes_campos = [c.get("nome") for c in campos_extracao if c.get("nome")]
     
-    # Prepara a lista de nomes para o prompt
     nomes_arquivos_str = "\n".join([f"- {arq['nome']}" for arq in arquivos_info])
 
     prompt_texto = f"""
@@ -74,7 +73,6 @@ Siga rigorosamente as regras de formatação de cada campo no output JSON.
             {"type": "text", "text": "Por favor, analise o(s) documento(s) anexo(s) e extraia os dados solicitados, cruzando com os nomes dos arquivos passados nas instruções."}
         ]
         
-        # Adiciona os arquivos fisicamente na requisição
         for arq in arquivos_info:
             conteudo_human_message.append(
                 {"type": "file", "file_id": arq["uri"], "mime_type": "application/pdf"}
