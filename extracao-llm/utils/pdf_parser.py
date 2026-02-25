@@ -1,76 +1,30 @@
-from typing import List
-from collections import Counter
-import re
+import time
+from google import genai
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_core.documents import Document
-
-def limpar_paginas_pdf(
-    paginas: List[Document],
-    frac_repeticao: float = 0.5,
-) -> List[Document]:
-    if not paginas:
-        return paginas
-
-    todas_linhas_por_pagina: List[List[str]] = []
-    contador_linhas = Counter()
-
-    for doc in paginas:
-        texto = doc.page_content or ""
-        linhas = [l.strip() for l in texto.splitlines() if l.strip()]
-        todas_linhas_por_pagina.append(linhas)
-        contador_linhas.update(set(linhas))
-
-    n_paginas = len(paginas)
-    limite_repeticao = max(2, int(n_paginas * frac_repeticao))
-    linhas_ruido = {
-        linha for linha, c in contador_linhas.items() if c >= limite_repeticao
-    }
-
-    print(
-        f"[Limpeza PDF] Identificadas {len(linhas_ruido)} linhas repetidas "
-        f"(provável cabeçalho/rodapé) em >= {limite_repeticao} páginas."
-    )
-
-    for doc, linhas in zip(paginas, todas_linhas_por_pagina):
-        # Remove apenas as linhas identificadas como ruído estrutural
-        linhas_filtradas = [l for l in linhas if l not in linhas_ruido]
-
-        linhas_mescladas: List[str] = []
-        buffer = ""
-        for l in linhas_filtradas:
-            if not buffer:
-                buffer = l
-                continue
-
-            # Se a linha atual não termina com pontuação de final de frase, junta com a próxima
-            if not re.search(r"[.!?:;]$", buffer):
-                buffer += " " + l
-            else:
-                linhas_mescladas.append(buffer)
-                buffer = l
-
-        if buffer:
-            linhas_mescladas.append(buffer)
-
-        # Normaliza espaços extras
-        linhas_norm = [re.sub(r"[ \t]+", " ", l).strip() for l in linhas_mescladas]
-        doc.page_content = "\n".join(linhas_norm)
-
-    return paginas
-
-def carregar_pdf(caminho_arquivo: str) -> List[Document]:
-    print(f"Carregando PDF de: {caminho_arquivo}")
+def fazer_upload_pdf(client: genai.Client, caminho_arquivo: str):
+    """Faz o upload do PDF para a File API do Google e aguarda ficar pronto."""
+    print(f"[File API] Iniciando upload de: {caminho_arquivo}")
+    
     try:
-        loader = PyPDFLoader(caminho_arquivo)
-        paginas: List[Document] = loader.load()
-        print(f"PDF carregado com sucesso. Número de páginas: {len(paginas)}")
-
-        paginas = limpar_paginas_pdf(paginas, frac_repeticao=0.5)
-
-        print("Limpeza básica aplicada às páginas (remoção de cabeçalho/rodapé genérico, "
-              "merge de linhas e normalização de espaços).")
-        return paginas
+        myfile = client.files.upload(file=caminho_arquivo)
+        print(f"[File API] Upload concluído. Aguardando processamento multimodal (ID: {myfile.name})...")
+        
+        # Como PDFs são documentos complexos, a API precisa de alguns segundos para extrair o layout
+        while myfile.state.name == "PROCESSING":
+            print(".", end="", flush=True)
+            time.sleep(2)
+            myfile = client.files.get(name=myfile.name)
+        
+        print("\n[File API] Arquivo 100% pronto para leitura!")
+        return myfile
     except Exception as e:
-        print(f"Erro ao carregar o PDF: {e}")
-        return []
+        print(f"\n[File API] Erro crítico no upload: {e}")
+        return None
+
+def deletar_pdf_nuvem(client: genai.Client, file_name: str):
+    """Limpa o arquivo dos servidores do Google após a extração."""
+    try:
+        client.files.delete(name=file_name)
+        print(f"[File API] O arquivo temporário {file_name} foi apagado da nuvem com sucesso.")
+    except Exception as e:
+        print(f"[File API] Erro ao deletar arquivo: {e}")

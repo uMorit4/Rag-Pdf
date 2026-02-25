@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "tipo_documento": "Demonstrativo Financeiro",
+    "versao": "1.0",
+    "descricao": "Pipeline de extração de dados financeiros de ativos circulantes (Current Assets)",
+    "files": ["FIA - Alphakey FIA.pdf","FIA - Atmos JCW.pdf","FIA - Encore.pdf","FIA - Tarpon GT90.pdf","FIA - WHG.pdf","FII - CF2.pdf",
+  "FII - CF3.pdf","FII - RBR3.pdf","FII - RBR4.pdf","FII - RBR comercial.pdf","FII - VRE.pdf","MM - Kapitalo Zeta.pdf","MM - MAR Absoluto.pdf",
+  "PE - Lego FIA.pdf","PE - Neo III.pdf","PE - Niche.pdf","PE - Principia.pdf","PE - Share.pdf","SS - SPS III.pdf","SS - Strata Feeder 051.pdf","SS - Strata Feeder A.pdf",
+  "SS - Strata Master.pdf","SS - Vera Cruz I.pdf","SS - Vera Cruz II.pdf","SS - Vinci SPS IV.pdf","VC - Aquamarine FIP.pdf", "PE - Atmos Ilíquidos.pdf", "VC - Positive Ventures.pdf"
+]
+  },
+  "prompts": {
+    "system_base": "Você é um sistema de Inteligência Artificial altamente especializado em extração de dados estruturados a partir de documentos não estruturados. Seu objetivo é identificar, estruturar e retornar as informações solicitadas em formato JSON estritamente válido. Regras gerais: (1) Sempre retorne um JSON válido. (2) Não invente dados; se a informação não existir, retorne nulo. (3) Extraia as informações exclusivamente do documento fornecido.",
+    "system_instrucoes_extras": "Atue como um especialista na análise de regulamentos de fundos de diversos tipos. Preste muita atenção à estrutura das tabelas, alinhamento de colunas e cabeçalhos."
+  },
+  "campos_extracao": [
+    {
+      "nome": "Tipo",
+      "tipo": "string",
+      "descricao": "Classifique o tipo do fundo de acordo com o seguinte dicionário:{'MM': 'MM', 'FIA': 'FIA', 'FII': 'Imobiliário', 'SS': 'Special Sits', 'PE': 'Private Equity', 'VC': 'Venture_Capital'",
+      "regras_formatacao": "Analise prioritariamente o NOME do arquivo original fornecido no prompt. Siga o seguinte dicionário de nomes"
+    },
+    {
+      "nome": "Fundo",
+      "tipo": "string",
+      "descricao": "Extraia o nome de cada um dos fundos",
+      "regras_formatacao": "Retorne apenas o texto exato com o nome do fundo, como por exemplo, em TARPON GT 90 FUNDO DE INVESTIMENTO FINANCEIRO EM COTAS DE FUNDOS DE INVESTIMENTO EM AÇÕES deve apenas retornar 'TARPON GT 90'."
+    },
+    {
+      "nome": "Administrador",
+      "tipo": "string",
+      "descricao": "Busque pelo nome que é referenciado como administrador(a) ou que é autorizada para administração do fundo",
+      "regras_formatacao": "Pegue apenas o primeiro nome, como, por exemplo, em BTG PACTUAL SERVIÇOS FINANCEIROS S.A. DTVM, apenas o nome 'BTG' é utilizado"
+    },
+    {
+      "nome": "NTD",
+      "tipo": "string",
+      "descricao": "Valor em NTD (Novo Dólar Taiwanês) desses Assets.",
+      "regras_formatacao": "Mantenha o valor numérico utilizando vírgula como separador."
+    },
+    {
+      "nome": "Percentual",
+      "tipo": "string",
+      "descricao": "Percentual de representatividade desses current assets em relação ao todo.",
+      "regras_formatacao": "Utilize ponto como separador."
+    }
+  ]
+}

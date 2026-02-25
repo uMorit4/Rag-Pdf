@@ -1,6 +1,5 @@
 import os
 import sys 
-import time
 import json
 import argparse
 
@@ -10,56 +9,18 @@ DIRETORIO_RAIZ = os.path.dirname(DIRETORIO_DO_SCRIPT) # Sobe um nível para a ra
 sys.path.insert(0, DIRETORIO_DO_SCRIPT)
 # -------------------------------------------------
 
-from typing import List
-from langchain_core.documents import Document
-from utils.pdf_parser import carregar_pdf
+from utils.pdf_parser import fazer_upload_pdf, deletar_pdf_nuvem
 from core.extractor import extrair_dados_estruturados
 from utils.csv_writer import salvar_para_csv
-from core.llm_service import get_gemini_llm  
-
-# Limites do modelo
-GEMINI_MAX_INPUT_TOKENS = 1_000_000
-FRACAO_MAX_CHUNK = 0.85
-MAX_TOKENS_POR_CHUNK = int(GEMINI_MAX_INPUT_TOKENS * FRACAO_MAX_CHUNK)
-
-def criar_chunks_de_documento(documentos: List[Document]) -> List[List[Document]]:
-    # ... [O conteúdo desta função permanece EXATAMENTE igual ao seu original] ...
-    if not documentos: return []
-    llm = get_gemini_llm()
-    chunks: List[List[Document]] = []
-    chunk_atual: List[Document] = []
-    texto_atual = ""  
-    separador = "\n\n--- Pág ---\n\n"
-
-    def conta_tokens(texto: str) -> int:
-        try:
-            return llm.get_num_tokens(texto)
-        except Exception as e:
-            return max(1, len(texto) // 4)
-
-    for doc in documentos:
-        pagina_texto = doc.page_content or ""
-        texto_candidato = pagina_texto if not chunk_atual else texto_atual + separador + pagina_texto
-        tokens_candidato = conta_tokens(texto_candidato)
-
-        if tokens_candidato > MAX_TOKENS_POR_CHUNK and chunk_atual:
-            chunks.append(chunk_atual)
-            chunk_atual = [doc]
-            texto_atual = pagina_texto  
-        else:
-            chunk_atual.append(doc)
-            texto_atual = texto_candidato
-
-    if chunk_atual:
-        chunks.append(chunk_atual)
-    return chunks
+from core.llm_service import get_gemini_clients
 
 def executar_pipeline(nome_json_config: str):
-    print(f"--- Iniciando Pipeline de Extração com JSON: {nome_json_config} ---")
+    print(f"--- Iniciando Pipeline File API (Multimodal): {nome_json_config} ---")
 
     # Mapeando os diretórios da nova arquitetura
-    caminho_configs = os.path.join(DIRETORIO_RAIZ, "inputs", "configs_jsons")
+    caminho_configs = os.path.join(DIRETORIO_RAIZ, "inputs", "configs_jsons") 
     caminho_pdfs = os.path.join(DIRETORIO_RAIZ, "inputs", "pdfs")
+    caminho_outputs = os.path.join(DIRETORIO_RAIZ, "outputs")
     caminho_arquivo_json = os.path.join(caminho_configs, nome_json_config)
 
     # 1. Carregando as Regras (JSON)
@@ -71,63 +32,90 @@ def executar_pipeline(nome_json_config: str):
         config = json.load(f)
 
     arquivos_pdf = config.get("metadata", {}).get("files", [])
+    modo_processamento = config.get("metadata", {}).get("modo_processamento", "individual")
     
     if not arquivos_pdf:
         print("Aviso: Nenhum PDF especificado na chave 'files' do JSON. Encerrando.")
         return
 
-    # 2. Processando cada PDF definido no JSON
-    for nome_pdf in arquivos_pdf:
-        print(f"\n==================================================")
-        print(f"Processando arquivo alvo: {nome_pdf}")
-        print(f"==================================================")
+    # Inicia as instâncias do LangChain e GenAI nativo
+    client_genai, llm_langchain = get_gemini_clients()
+
+    # ==========================================
+    # FLUXO 1: PROCESSAMENTO EM CONJUNTO
+    # ==========================================
+    if modo_processamento == "conjunto":
+        print(f"\n[Modo Conjunto] Subindo {len(arquivos_pdf)} arquivos simultaneamente...")
+        arquivos_nuvem = []
+        arquivos_info = [] # Lista para guardar as infos pareadas (URI e Nome)
         
-        caminho_pdf = os.path.join(caminho_pdfs, nome_pdf)
-        
-        caminho_outputs = os.path.join(DIRETORIO_RAIZ, "outputs")
-        nome_csv_saida = os.path.join(caminho_outputs, f"dados_extraidos_{nome_pdf.replace('.pdf', '')}.csv")
-
-        print(f"\n[Passo 1: Carregando PDF]")
-        documentos_completos = carregar_pdf(caminho_pdf)
-        
-        if not documentos_completos:
-            print(f"Falha ao carregar {nome_pdf}. Pulando para o próximo...")
-            continue
-
-        print(f"\n[Passo 2: Dividindo Documento em Chunks]")
-        chunks = criar_chunks_de_documento(documentos_completos)
-
-        print(f"\n[Passo 3: Processando Chunks com LLM]")
-        todos_os_dados_extraidos = [] 
-
-        for i, chunk in enumerate(chunks):
-            print(f"\n--- Processando Chunk {i + 1} / {len(chunks)} ---")
-
-            # Agora passamos o config_json inteiro em vez do antigo dicionário engessado
-            dados_extraidos_do_chunk = extrair_dados_estruturados(chunk, config)
+        # 1. Sobe todos os arquivos
+        for nome_pdf in arquivos_pdf:
+            caminho_pdf = os.path.join(caminho_pdfs, nome_pdf)
+            arq = fazer_upload_pdf(client_genai, caminho_pdf)
+            if arq: 
+                arquivos_nuvem.append(arq)
+                arquivos_info.append({"uri": arq.uri, "nome": nome_pdf})
             
-            if dados_extraidos_do_chunk:
-                todos_os_dados_extraidos.extend(dados_extraidos_do_chunk)
-                print(f"Chunk {i + 1} processado. {len(dados_extraidos_do_chunk)} itens encontrados.")
-            else:
-                print(f"Chunk {i + 1} processado. Nenhum item encontrado.")
+        if not arquivos_nuvem: 
+            return
 
-            if i < len(chunks) - 1: 
-                print("Aguardando 2 segundos para evitar limite de quota...")
-                time.sleep(2) 
+        # 2. Extrai tudo de uma vez
+        print("\n[Passo 2: Analisando todos os documentos simultaneamente...]")
+        dados_extraidos = extrair_dados_estruturados(arquivos_info, config, llm_langchain)
 
-        print(f"\n[Passo 4: Salvando em CSV - {nome_pdf}]")
-        if not todos_os_dados_extraidos:
-            print(f"Nenhum dado extraído de {nome_pdf}. O CSV não será criado.")
+        # 3. Salva em CSV único
+        nome_csv_saida = os.path.join(caminho_outputs, "dados_extraidos_conjunto.csv")
+        if dados_extraidos:
+            salvar_para_csv(dados_extraidos, nome_csv_saida)
+            print(f"Total de {len(dados_extraidos)} linhas consolidadas em '{nome_csv_saida}'")
         else:
-            salvar_para_csv(todos_os_dados_extraidos, nome_csv_saida)
-            print(f"CSV criado: '{nome_csv_saida}'")
-    
-    print("\n--- Pipeline Concluído ---")
+            print("Atenção: Nenhum dado foi encontrado nos arquivos.")
+
+        # 4. Deleta todos os arquivos
+        print("\n[Passo 4: Faxina de Arquivos]")
+        for arq in arquivos_nuvem:
+            deletar_pdf_nuvem(client_genai, arq.name)
+
+    # ==========================================
+    # FLUXO 2: PROCESSAMENTO INDIVIDUAL (PADRÃO)
+    # ==========================================
+    else:
+        for nome_pdf in arquivos_pdf:
+            print(f"\n==================================================")
+            print(f"[Modo Individual] Processando: {nome_pdf}")
+            print(f"==================================================")
+            
+            caminho_pdf = os.path.join(caminho_pdfs, nome_pdf)
+            nome_csv_saida = os.path.join(caminho_outputs, f"dados_extraidos_{nome_pdf.replace('.pdf', '')}.csv")
+
+            # PASSO 1: File API
+            arquivo_nuvem = fazer_upload_pdf(client_genai, caminho_pdf)
+            if not arquivo_nuvem: 
+                continue
+
+            # PASSO 2: Extração
+            print("\n[Passo 2: Analisando documento...]")
+            arquivos_info = [{"uri": arquivo_nuvem.uri, "nome": nome_pdf}]
+            dados_extraidos = extrair_dados_estruturados(arquivos_info, config, llm_langchain)
+
+            # PASSO 3: CSV
+            print(f"\n[Passo 3: Salvando resultados em CSV]")
+            if dados_extraidos:
+                salvar_para_csv(dados_extraidos, nome_csv_saida)
+                print(f"Total de {len(dados_extraidos)} linhas estruturadas em '{nome_csv_saida}'")
+            else:
+                print(f"Atenção: Nenhum dado foi encontrado dentro de {nome_pdf}.")
+            
+            # PASSO 4: Limpeza (Fundamental para segurança)
+            print("\n[Passo 4: Faxina de Arquivos]")
+            deletar_pdf_nuvem(client_genai, arquivo_nuvem.name)
+            
+    print("\n--- Pipeline Concluído com Sucesso ---")
 
 if __name__ == "__main__":
     # Permite passar o nome do arquivo JSON pelo terminal
-    parser = argparse.ArgumentParser(description="Pipeline Genérico de Extração de Dados via LLM")
+    parser = argparse.ArgumentParser(description="Pipeline Multimodal de Extração de Dados via LLM")
     parser.add_argument(
         "config_json", 
         type=str, 
