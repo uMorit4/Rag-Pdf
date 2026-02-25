@@ -5,22 +5,10 @@ import re
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 
-
 def limpar_paginas_pdf(
     paginas: List[Document],
     frac_repeticao: float = 0.5,
 ) -> List[Document]:
-    """
-    Aplica limpezas para reduzir tokens e ruído:
-    - Remove linhas de cabeçalho/rodapé repetidas em muitas páginas
-    - Junta linhas quebradas no meio de frases
-    - Normaliza espaços em branco
-
-    frac_repeticao:
-        Fração mínima de páginas em que uma linha precisa aparecer
-        para ser considerada "ruído global" (cabeçalho/rodapé).
-        Ex: 0.5 => linha que aparece em pelo menos 50% das páginas.
-    """
     if not paginas:
         return paginas
 
@@ -31,7 +19,6 @@ def limpar_paginas_pdf(
         texto = doc.page_content or ""
         linhas = [l.strip() for l in texto.splitlines() if l.strip()]
         todas_linhas_por_pagina.append(linhas)
-
         contador_linhas.update(set(linhas))
 
     n_paginas = len(paginas)
@@ -46,26 +33,17 @@ def limpar_paginas_pdf(
     )
 
     for doc, linhas in zip(paginas, todas_linhas_por_pagina):
-
+        # Remove apenas as linhas identificadas como ruído estrutural
         linhas_filtradas = [l for l in linhas if l not in linhas_ruido]
-
-        padroes_descartar = [
-            r"this document.*not (an offer|constitute)",
-            r"tsmc.*all rights reserved",
-        ]
-        linhas_filtradas2: List[str] = []
-        for l in linhas_filtradas:
-            if any(re.search(p, l, flags=re.I) for p in padroes_descartar):
-                continue
-            linhas_filtradas2.append(l)
 
         linhas_mescladas: List[str] = []
         buffer = ""
-        for l in linhas_filtradas2:
+        for l in linhas_filtradas:
             if not buffer:
                 buffer = l
                 continue
 
+            # Se a linha atual não termina com pontuação de final de frase, junta com a próxima
             if not re.search(r"[.!?:;]$", buffer):
                 buffer += " " + l
             else:
@@ -75,23 +53,13 @@ def limpar_paginas_pdf(
         if buffer:
             linhas_mescladas.append(buffer)
 
+        # Normaliza espaços extras
         linhas_norm = [re.sub(r"[ \t]+", " ", l).strip() for l in linhas_mescladas]
-
         doc.page_content = "\n".join(linhas_norm)
 
     return paginas
 
-
 def carregar_pdf(caminho_arquivo: str) -> List[Document]:
-    """
-    Carrega um arquivo PDF, limpa o texto e retorna uma lista de Documentos (páginas).
-    
-    Args:
-        caminho_arquivo: O caminho para o arquivo PDF.
-
-    Returns:
-        Uma lista de objetos Document do LangChain, onde cada objeto representa uma página.
-    """
     print(f"Carregando PDF de: {caminho_arquivo}")
     try:
         loader = PyPDFLoader(caminho_arquivo)
@@ -100,7 +68,7 @@ def carregar_pdf(caminho_arquivo: str) -> List[Document]:
 
         paginas = limpar_paginas_pdf(paginas, frac_repeticao=0.5)
 
-        print("Limpeza básica aplicada às páginas (remoção de cabeçalho/rodapé, "
+        print("Limpeza básica aplicada às páginas (remoção de cabeçalho/rodapé genérico, "
               "merge de linhas e normalização de espaços).")
         return paginas
     except Exception as e:

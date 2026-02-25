@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "tipo_documento": "Demonstrativo Financeiro",
+    "versao": "1.0",
+    "descricao": "Pipeline de extração de dados financeiros de ativos circulantes (Current Assets)",
+    "files": ["FS.pdf"]
+  },
+  "prompts": {
+    "system_base": "Você é um sistema de Inteligência Artificial altamente especializado em extração de dados estruturados a partir de documentos não estruturados. Seu objetivo é identificar, estruturar e retornar as informações solicitadas em formato JSON estritamente válido. Regras gerais: (1) Sempre retorne um JSON válido. (2) Não invente dados; se a informação não existir, retorne nulo. (3) Extraia as informações exclusivamente do documento fornecido.",
+    "system_instrucoes_extras": "Atue como um especialista na análise de demonstrativos financeiros e balanços patrimoniais. Preste muita atenção à estrutura das tabelas, alinhamento de colunas e cabeçalhos. Diferencie corretamente as colunas de valores em moedas diferentes (USD e NTD) e suas respectivas proporções percentuais.",
+    "contexto_busca_padrao": "Current Assets"
+  },
+  "campos_extracao": [
+    {
+      "nome": "Data",
+      "tipo": "string",
+      "descricao": "Extraia a data da coluna ou cabeçalho correspondente. Todas as datas disponíveis, incluindo períodos de tempo como YoY e similares.",
+      "regras_formatacao": "Retorne os valores exatos de data encontrados no documento."
+    },
+    {
+      "nome": "Current Assets",
+      "tipo": "string",
+      "descricao": "Extraia o nome de cada um dos Current Assets.",
+      "regras_formatacao": "Retorne apenas o texto exato com o nome do ativo."
+    },
+    {
+      "nome": "USD",
+      "tipo": "float",
+      "descricao": "Valor em dólar (USD) desses Assets.",
+      "regras_formatacao": "Mantenha o valor numérico com até 2 casas decimais"
+    },
+    {
+      "nome": "NTD",
+      "tipo": "string",
+      "descricao": "Valor em NTD (Novo Dólar Taiwanês) desses Assets.",
+      "regras_formatacao": "Mantenha o valor numérico utilizando vírgula como separador."
+    },
+    {
+      "nome": "Percentual",
+      "tipo": "string",
+      "descricao": "Percentual de representatividade desses current assets em relação ao todo.",
+      "regras_formatacao": "Utilize ponto como separador."
+    }
+  ]
+}
