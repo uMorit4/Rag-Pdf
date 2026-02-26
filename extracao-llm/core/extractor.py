@@ -1,4 +1,5 @@
 import re
+import time 
 from typing import List, Optional, Type, Dict, Any
 from pydantic import BaseModel, Field, create_model
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -65,30 +66,52 @@ Campos que você DEVE extrair para cada item/arquivo: {", ".join(lista_nomes_cam
 Siga rigorosamente as regras de formatação de cada campo no output JSON.
 """
 
-    try:
-        OutputSchema = create_dynamic_output_schema(campos_extracao)
-        llm_with_schema = llm.with_structured_output(OutputSchema)
-        
-        conteudo_human_message = [
-            {"type": "text", "text": "Por favor, analise o(s) documento(s) anexo(s) e extraia os dados solicitados, cruzando com os nomes dos arquivos passados nas instruções."}
-        ]
-        
-        for arq in arquivos_info:
-            conteudo_human_message.append(
-                {"type": "file", "file_id": arq["uri"], "mime_type": "application/pdf"}
-            )
+    OutputSchema = create_dynamic_output_schema(campos_extracao)
+    llm_with_schema = llm.with_structured_output(OutputSchema)
+    
+    conteudo_human_message = [
+        {"type": "text", "text": "Por favor, analise o(s) documento(s) anexo(s) e extraia os dados solicitados, cruzando com os nomes dos arquivos passados nas instruções."}
+    ]
+    
+    for arq in arquivos_info:
+        conteudo_human_message.append(
+            {"type": "file", "file_id": arq["uri"], "mime_type": "application/pdf"}
+        )
 
-        messages = [
-            SystemMessage(content=prompt_texto),
-            HumanMessage(content=conteudo_human_message)
-        ]
+    messages = [
+        SystemMessage(content=prompt_texto),
+        HumanMessage(content=conteudo_human_message)
+    ]
 
-        resultado = llm_with_schema.invoke(messages)
-        
-        if resultado and hasattr(resultado, 'data'):
-            return [item.model_dump() for item in resultado.data]
-        return []
-        
-    except Exception as e:
-        print(f"[Extrator] Erro: {e}")
-        return []
+    # ==========================================
+    # NOVO: LOOP DE RETRY PARA LIMITES DA API (429)
+    # ==========================================
+    max_tentativas = 15 # Tenta até 15 vezes (dá uns 7 minutos no total) para evitar loops eternos se a API cair de vez
+    tentativa = 1
+    
+    while tentativa <= max_tentativas:
+        try:
+            resultado = llm_with_schema.invoke(messages)
+            
+            if resultado and hasattr(resultado, 'data'):
+                return [item.model_dump() for item in resultado.data]
+            return []
+            
+        except Exception as e:
+            erro_str = str(e)
+            
+            # Verifica se o erro possui '429' ou 'RESOURCE_EXHAUSTED'
+            if "429" in erro_str or "RESOURCE_EXHAUSTED" in erro_str:
+                print(f"  [Espera] Limite de requisições por minuto atingido (429).")
+                print(f"  [Espera] Aguardando 30 segundos para tentar novamente... (Tentativa {tentativa}/{max_tentativas})")
+                time.sleep(5)
+                tentativa += 1
+                continue # Pula o resto e volta para o início do while
+                
+            else:
+                # Se for qualquer outro erro (ex: modelo fora do ar, erro no seu prompt), ele falha normalmente
+                print(f"  [Extrator] Erro inesperado: {e}")
+                return []
+                
+    print("  [Extrator] Limite máximo de retentativas atingido. Pulando este arquivo.")
+    return []

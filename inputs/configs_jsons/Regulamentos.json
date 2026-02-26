@@ -4,93 +4,91 @@
     "versao": "1.0",
     "descricao": "Pipeline de extração de dados cadastrais e de taxas de regulamentos de fundos externos",
     "files": ["FIA - Alphakey FIA.pdf","FIA - Atmos JCW.pdf","FIA - Encore.pdf","FIA - Tarpon GT90.pdf","FIA - WHG.pdf","FII - CF2.pdf",
-  "FII - CF3.pdf","FII - RBR3.pdf","FII - RBR4.pdf","FII - RBR comercial.pdf","FII - VRE.pdf","MM - Kapitalo Zeta.pdf","MM - MAR Absoluto.pdf",
-  "PE - Lego FIA.pdf","PE - Neo III.pdf","PE - Niche.pdf","PE - Principia.pdf","PE - Share.pdf","SS - SPS III.pdf","SS - Strata Feeder 051.pdf","SS - Strata Feeder A.pdf",
-  "SS - Strata Master.pdf","SS - Vera Cruz I.pdf","SS - Vera Cruz II.pdf","SS - Vinci SPS IV.pdf","VC - Aquamarine FIP.pdf", "PE - Atmos Ilíquidos.pdf", "VC - Positive Ventures.pdf"
+  "FII - CF3.pdf","FII - RBR3.pdf"
   ]
   },
   "prompts": {
     "system_base": "Você é um sistema de Inteligência Artificial altamente especializado em extração de dados estruturados a partir de documentos não estruturados. Seu objetivo é identificar, estruturar e retornar as informações solicitadas em formato JSON estritamente válido. Regras gerais: (1) Sempre retorne um JSON válido. (2) Não invente dados; se a informação não existir, retorne nulo. (3) Extraia as informações exclusivamente do documento fornecido.",
     "system_instrucoes_extras": "Atue como um especialista na análise de regulamentos de fundos de investimentos, estatutos e atas de assembleia. Preste muita atenção aos quadros resumos, definições de termos (glossário) e seções de taxas/encargos e emissão/resgate de cotas."
   },
-  "campos_extracao": [
+"campos_extracao": [
     {
       "nome": "Tipo",
       "tipo": "string",
-      "descricao": "Classifique o tipo do fundo (ex: MM, FIA, FII, SS, PE, VC) com base exclusivamente na sua política de investimento, nome e regulamento descritos no texto do documento.",
-      "regras_formatacao": "Não utilize o nome do arquivo para deduzir o tipo. Retorne apenas a sigla ou classificação curta, segundo o seguinte dicionário: {'MM': 'Multimercado', 'FIA': 'Ações', 'FII': 'Imobiliário', 'SS': 'Special Sits/Crédito Privado', 'PE': 'Private Equity', 'VC': 'Venture Capital'}."
+      "descricao": "Classifique o tipo do fundo com base na política de investimento.",
+      "regras_formatacao": "Retorne ESTRITAMENTE uma destas categorias exatas: 'MM', 'FIA', 'Imobiliário', 'Special Sits', 'Private Equity', 'Venture Capital'. Não utilize outras siglas."
     },
     {
       "nome": "Fundo",
       "tipo": "string",
       "descricao": "Extraia o nome do fundo de investimento.",
-      "regras_formatacao": "Retorne o nome de forma limpa, priorizando o nome fantasia principal. Exemplo: em 'KAPITALO ZETA FUNDO DE INVESTIMENTO FINANCEIRO EM QUOTAS', retorne 'KAPITALO ZETA'."
+      "regras_formatacao": "Retorne o nome de forma limpa, priorizando o nome fantasia principal. De apenas o nome único do fundo, removendo coisas como 'FUNDO DE INVESTIMENTO...', a não ser que seja sigla como 'FII' por exemplo."
     },
     {
       "nome": "Administrador",
       "tipo": "string",
-      "descricao": "Busque pelo nome da instituição referenciada como administradora fiduciária do fundo.",
-      "regras_formatacao": "Pegue apenas o nome principal da instituição, sem sufixos legais. Exemplo: 'VÓRTX DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.' deve retornar apenas 'VORTX'."
+      "descricao": "Busque pelo nome da instituição administradora fiduciária.",
+      "regras_formatacao": "Retorne apenas o nome principal da instituição (ex: 'BTG', 'Vortx', 'Genial', 'Daycoval'), apenas o primeiro nome."
     },
     {
       "nome": "CNPJ",
       "tipo": "string",
-      "descricao": "Extraia o número do Cadastro Nacional da Pessoa Jurídica (CNPJ) do fundo.",
-      "regras_formatacao": "Retorne estritamente no formato padrão com pontuação: XX.XXX.XXX/0001-XX."
+      "descricao": "Extraia o CNPJ do fundo.",
+      "regras_formatacao": "Formato: XX.XXX.XXX/0001-XX."
     },
     {
       "nome": "Taxa Global",
       "tipo": "string",
-      "descricao": "Extraia a taxa global de administração ou equivalente.",
-      "regras_formatacao": "Caso haja indicação de taxa atual e taxa máxima, inclua ambas. Exemplo: '2,0% (máximo de 2,2%)'. Se não houver, retorne apenas a porcentagem."
+      "descricao": "Extraia a taxa global ou taxa máxima consolidada, se aplicável.",
+      "regras_formatacao": "Inclua a taxa atual e máxima. Ex: '1,87% (máximo de 2,2%)'."
     },
     {
       "nome": "Taxa Adm",
-      "tipo": "number",
-      "descricao": "Extraia a taxa específica cobrada pela prestação do serviço de administração, caso destacada da taxa global.",
-      "regras_formatacao": "Retorne apenas o valor numérico em formato decimal correspondente à porcentagem (ex: 0.02 para 2%)."
+      "tipo": "string",
+      "descricao": "Extraia a taxa de administração e seus valores mínimos contratuais.",
+      "regras_formatacao": "Crucial: Inclua percentuais e pisos financeiros mensais. Ex: '0,25% (mínimo de R$ 18,2k/mês)' ou 'R$ 640,50/mês'."
     },
     {
       "nome": "Taxa Gestão",
-      "tipo": "number",
-      "descricao": "Extraia a taxa específica cobrada pela prestação do serviço de gestão da carteira, caso destacada.",
-      "regras_formatacao": "Retorne apenas o valor numérico em formato decimal."
+      "tipo": "string",
+      "descricao": "Extraia a taxa de gestão da carteira e a base de cálculo.",
+      "regras_formatacao": "Se o fundo tiver fases, separe. Ex: '(a) Período de investimento: 1,5% sobre comprometido, (b) Desinvestimento: 1,5% sobre o PL'."
     },
     {
       "nome": "Taxa Custódia",
       "tipo": "string",
-      "descricao": "Extraia a taxa cobrada pelo serviço de custódia dos ativos do fundo.",
-      "regras_formatacao": "Pode ser um valor fixo ou um percentual máximo. Exemplo: 'max 0,03%' ou o valor numérico decimal."
+      "descricao": "Extraia a taxa cobrada pela custódia.",
+      "regras_formatacao": "Inclua o percentual e valores mínimos se houver. Ex: 'max 0,03%' ou '0,02% (R$ 1,5k/mês)'."
     },
     {
       "nome": "Pfee",
       "tipo": "string",
-      "descricao": "Extraia as condições da Taxa de Performance (Performance fee), incluindo o percentual e o benchmark/índice de referência.",
-      "regras_formatacao": "Retorne no formato 'Percentual + critério'. Exemplo: '20% exceder CDI' ou '20% exceder IPCA + IMA-B'."
+      "descricao": "Extraia as regras da Taxa de Performance (hurdle rate).",
+      "regras_formatacao": "Inclua o percentual, o indexador, e NÃO IGNORE cláusulas de '(catch-up)' ou travas de múltiplo '(ex: até 3x MOIC)'. Ex: '20% exceder IPCA + 6% (catch-up)'."
     },
     {
       "nome": "Pagamento Pfee",
       "tipo": "string",
-      "descricao": "Identifique a periodicidade ou época em que a taxa de performance é apurada e paga.",
-      "regras_formatacao": "Seja conciso. Exemplo: 'Semestral (junho e dezembro)' ou 'Anual'."
+      "descricao": "Identifique a época em que a taxa de performance é paga.",
+      "regras_formatacao": "Para fundos líquidos: 'Semestral (junho e dezembro)'. Para fundos ilíquidos (PE, VC, Imobiliário), se estiver atrelado a distribuições, padronize para: 'Após o hurdle, a cada amortização'."
     },
     {
       "nome": "Rebates",
       "tipo": "string",
-      "descricao": "Extraia qualquer política ou percentual de rebate ou devolução de taxas aplicável ao fundo/investidor.",
-      "regras_formatacao": "Retorne o percentual e sobre o que incide. Exemplo: '40% sobre a taxa de administração'."
+      "descricao": "Extraia qualquer política de rebate aplicável.",
+      "regras_formatacao": "Ex: '40% sobre a tx de adm e 30% sobre taxa pfee'."
     },
     {
       "nome": "Aplicação",
       "tipo": "string",
-      "descricao": "Identifique o prazo para conversão/cotização da aplicação financeira.",
-      "regras_formatacao": "Utilize a nomenclatura de dias úteis padrão de mercado financeiro. Exemplo: 'D+0', 'D+1'."
+      "descricao": "Identifique o prazo para cotização da aplicação.",
+      "regras_formatacao": "Ex: 'D+0', 'D+1'."
     },
     {
       "nome": "Liquidação Resgate",
       "tipo": "string",
-      "descricao": "Identifique o prazo total para a liquidação financeira após a solicitação de resgate pelo cotista (soma da cotização com a liquidação).",
-      "regras_formatacao": "Utilize a nomenclatura padrão em dias. Exemplo: 'D+31', 'D+61'. Se houver diferença entre cotização e pagamento financeiro, consolide o prazo total até o dinheiro entrar na conta."
+      "descricao": "Prazo total para a liquidação financeira do resgate.",
+      "regras_formatacao": "Soma da cotização com liquidação. Ex: 'D+32', 'D+61'."
     }
   ]
 }
